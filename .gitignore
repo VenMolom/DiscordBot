@@ -1,4 +1,5 @@
 .vs/*
+.vscode/*
 DiscordBot/bin/*
 DiscordBot/obj/*
 DiscordBot/Properties/*
