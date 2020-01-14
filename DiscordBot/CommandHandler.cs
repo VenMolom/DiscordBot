@@ -5,6 +5,7 @@ using Discord.WebSocket;
 using Discord.Commands;
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
+using DiscordBot.Services;
 
 namespace DiscordBot
 {
@@ -13,6 +14,7 @@ namespace DiscordBot
         private readonly DiscordSocketClient _client;
         private readonly CommandService _commands;
         private readonly IServiceProvider _services;
+        private readonly LoggingService _logger;
 
         public CommandHandler(DiscordSocketClient client, CommandService commands, IServiceProvider services)
         {
@@ -35,9 +37,6 @@ namespace DiscordBot
             if (logMessage.Exception is CommandException cmdException)
             {
                 await cmdException.Context.Channel.SendMessageAsync("Something went catastrophically wrong!");
-
-                Console.WriteLine($"{cmdException.Context.User} failed to execute '{cmdException.Command.Name}' in {cmdException.Context.Channel}.");
-                Console.WriteLine(cmdException.ToString());
             }
         }
 
@@ -50,7 +49,9 @@ namespace DiscordBot
                     break;
                 default:
                     if (!string.IsNullOrEmpty(result?.ErrorReason))
-                        Console.WriteLine(result.ErrorReason);
+                    {
+                        await _logger.OnLogAsync(new LogMessage(LogSeverity.Error, "Command", result.ErrorReason));
+                    }
                     break;
             }
         }
@@ -71,25 +72,5 @@ namespace DiscordBot
 
             var result = await _commands.ExecuteAsync(context, argPos, _services);
         }
-    }
-
-    public class Initialize
-    {
-        private readonly CommandService _commands;
-        private readonly DiscordSocketClient _client;
-
-        public Initialize(CommandService commands = null, DiscordSocketClient client = null)
-        {
-            _commands = commands ?? new CommandService();
-            _client = client ?? new DiscordSocketClient();
-        }
-
-        public IServiceProvider BuildServiceProvider()
-            => new ServiceCollection()
-            .AddSingleton(_client)
-            .AddSingleton(_commands)
-            .AddSingleton<AudioService>()
-            .AddSingleton<CommandHandler>()
-            .BuildServiceProvider();
     }
 }

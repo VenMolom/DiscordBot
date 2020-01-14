@@ -1,5 +1,6 @@
 ﻿using Discord;
 using Discord.Commands;
+using DiscordBot.Services;
 using System.Threading.Tasks;
 
 namespace DiscordBot

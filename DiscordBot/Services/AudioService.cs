@@ -7,7 +7,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
 
-namespace DiscordBot
+namespace DiscordBot.Services
 {
     public class AudioService
     {
@@ -30,7 +30,7 @@ namespace DiscordBot
             {
                 audioClient = await channel.ConnectAsync();
             }
-            catch(TimeoutException e)
+            catch(TimeoutException)
             {
                 return MyCustomResult.FromError($"Cannot connect to {channel.Name}");
             }
