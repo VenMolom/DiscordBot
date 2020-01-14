@@ -2,3 +2,5 @@
 DiscordBot/bin/*
 DiscordBot/obj/*
 DiscordBot/Properties/*
+*.exe
+*.dll
