@@ -2,8 +2,9 @@
 using Discord.Commands;
 using Discord.WebSocket;
 using System.Threading.Tasks;
+using DiscordBot.Entities;
 
-namespace DiscordBot
+namespace DiscordBot.Modules
 {
     public class InfoModule : ModuleBase<SocketCommandContext>
     {

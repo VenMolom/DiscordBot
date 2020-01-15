@@ -1,6 +1,6 @@
 ﻿using Discord.Commands;
 
-namespace DiscordBot
+namespace DiscordBot.Entities
 {
     public class MyCustomResult : RuntimeResult
     {

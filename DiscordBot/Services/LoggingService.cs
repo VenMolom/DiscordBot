@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace DiscordBot.Services
 {
-    class LoggingService
+    public class LoggingService
     {
         private readonly ILogger _logger;
         private readonly DiscordSocketClient _client;
@@ -23,14 +23,20 @@ namespace DiscordBot.Services
             _cmdService.Log += OnLogAsync;
         }
 
-        public Task OnReadyAsync()
+        public Task Log(LogMessage msg)
         {
-            _logger.LogInformation($"Connected as -> [{_client.CurrentUser}]");
-            _logger.LogInformation($"We are on [{_client.Guilds.Count}] servers");
+            OnLogAsync(msg);
             return Task.CompletedTask;
         }
 
-        public Task OnLogAsync(LogMessage msg)
+        private Task OnReadyAsync()
+        {
+            OnLogAsync(new LogMessage(LogSeverity.Info, "Ready", $"Connected as {_client.CurrentUser}"));
+            OnLogAsync(new LogMessage(LogSeverity.Info, "Ready", $"We are on {_client.Guilds.Count} servers"));
+            return Task.CompletedTask;
+        }
+
+        private Task OnLogAsync(LogMessage msg)
         {
             switch (msg.Severity.ToString())
             {

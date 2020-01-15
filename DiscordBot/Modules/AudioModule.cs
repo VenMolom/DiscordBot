@@ -1,9 +1,10 @@
 ﻿using Discord;
 using Discord.Commands;
+using DiscordBot.Entities;
 using DiscordBot.Services;
 using System.Threading.Tasks;
 
-namespace DiscordBot
+namespace DiscordBot.Modules
 {
     public class AudioModule : ModuleBase<SocketCommandContext>
     {
@@ -15,21 +16,13 @@ namespace DiscordBot
         }
 
         [Command("join", RunMode = RunMode.Async)]
-        public async Task<RuntimeResult> JoinVoiceAsync(IVoiceChannel channel = null)
-        {
-            channel = channel ?? (Context.User as IGuildUser)?.VoiceChannel;
-            if (channel == null)
-            {
-                return MyCustomResult.FromError("User must be in a voice channel, or a voice channel must be passed as an argument.");
-            }
-            return await _service.JoinVoiceAsync(Context.Guild, channel);
-        }
+        public async Task<RuntimeResult> JoinAsync()
+            => await _service.JoinAsync(Context.User as IGuildUser, Context.Channel as ITextChannel);
 
         [Command("leave", RunMode = RunMode.Async)]
-        public async Task<RuntimeResult> LeaveVoiceAsync()
-        {
-            return await _service.LeaveVoiceAsync(Context.Guild);
-        }
+        public async Task<RuntimeResult> LeaveAsync()
+           => await _service.LeaveAsync(Context.Guild, Context.User);
+      
 
         [Command("play", RunMode = RunMode.Async)]
         public async Task<RuntimeResult> SendVoiceAsync()

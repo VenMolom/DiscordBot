@@ -6,4 +6,4 @@ DiscordBot/Properties/*
 *.exe
 *.dll
 *.mp3
-DiscordBot/logs/*
+DiscordBot/Server/logs/*

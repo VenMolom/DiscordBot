@@ -6,6 +6,7 @@ using Discord.Commands;
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using DiscordBot.Services;
+using DiscordBot.Entities;
 
 namespace DiscordBot
 {
@@ -16,23 +17,24 @@ namespace DiscordBot
         private readonly IServiceProvider _services;
         private readonly LoggingService _logger;
 
-        public CommandHandler(DiscordSocketClient client, CommandService commands, IServiceProvider services)
+        public CommandHandler(DiscordSocketClient client, CommandService commands, IServiceProvider services, LoggingService logger)
         {
             _commands = commands;
             _client = client;
             _services = services;
+            _logger = logger;
         }
 
         public async Task InstallCommandsAsync()
         {
             _client.MessageReceived += HandleCommandAsync;
             _commands.CommandExecuted += OnCommandExecutedAsync;
-            _commands.Log += LogAsync;
+            _commands.Log += OnLogAsync;
 
             await _commands.AddModulesAsync(Assembly.GetEntryAssembly(), _services);
         }
 
-        private async Task LogAsync(LogMessage logMessage)
+        private async Task OnLogAsync(LogMessage logMessage)
         {
             if (logMessage.Exception is CommandException cmdException)
             {
@@ -50,7 +52,10 @@ namespace DiscordBot
                 default:
                     if (!string.IsNullOrEmpty(result?.ErrorReason))
                     {
-                        await _logger.OnLogAsync(new LogMessage(LogSeverity.Error, "Command", result.ErrorReason));
+                        string cmd = command.IsSpecified ? command.Value?.Name : "";
+                        await _logger.Log(new LogMessage(LogSeverity.Info, "Command", $"Failed to execute \"{cmd}\" for {context.User} in {context.Guild}/{context.Channel}."));
+                        await _logger.Log(new LogMessage(LogSeverity.Info, "Command", result.ErrorReason));
+                        await context.Channel.SendMessageAsync(result.ErrorReason);
                     }
                     break;
             }
