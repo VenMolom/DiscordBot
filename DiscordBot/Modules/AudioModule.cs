@@ -21,13 +21,11 @@ namespace DiscordBot.Modules
 
         [Command("leave", RunMode = RunMode.Async)]
         public async Task<RuntimeResult> LeaveAsync()
-           => await _service.LeaveAsync(Context.Guild, Context.User);
+            => await _service.LeaveAsync(Context.Guild, Context.User as IGuildUser);
       
 
         [Command("play", RunMode = RunMode.Async)]
-        public async Task<RuntimeResult> SendVoiceAsync()
-        {
-            return await _service.SendVoiceAsync(Context.Guild, Context.Channel);
-        }
+        public async Task<RuntimeResult> SendVoiceAsync([Remainder] string query)
+            => await _service.PlayAsync(Context.Guild, query);
     }
 }

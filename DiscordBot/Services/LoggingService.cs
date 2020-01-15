@@ -3,6 +3,7 @@ using Discord.Commands;
 using Discord.WebSocket;
 using Microsoft.Extensions.Logging;
 using System.Threading.Tasks;
+using Victoria;
 
 namespace DiscordBot.Services
 {
@@ -11,16 +12,19 @@ namespace DiscordBot.Services
         private readonly ILogger _logger;
         private readonly DiscordSocketClient _client;
         private readonly CommandService _cmdService;
+        private readonly LavaNode _lavaNode;
 
-        public LoggingService(ILogger<LoggingService> logger, DiscordSocketClient client, CommandService cmdService)
+        public LoggingService(ILogger<LoggingService> logger, DiscordSocketClient client, CommandService cmdService, LavaNode lavaNode)
         {
             _logger = logger;
             _client = client;
             _cmdService = cmdService;
+            _lavaNode = lavaNode;
 
             _client.Ready += OnReadyAsync;
             _client.Log += OnLogAsync;
             _cmdService.Log += OnLogAsync;
+            _lavaNode.OnLog += OnLogAsync;
         }
 
         public Task Log(LogMessage msg)
