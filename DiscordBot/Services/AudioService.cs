@@ -1,6 +1,7 @@
 ﻿using Discord;
 using Discord.Audio;
 using Discord.Commands;
+using Discord.WebSocket;
 using DiscordBot.Entities;
 using System;
 using System.Collections.Concurrent;
@@ -8,6 +9,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
 using Victoria;
+using Victoria.Enums;
 
 namespace DiscordBot.Services
 {
@@ -39,7 +41,7 @@ namespace DiscordBot.Services
                 await _lavaNode.JoinAsync(user.VoiceChannel, textChannel);
                 return MyCustomResult.FromSuccess($"Joined {user.VoiceChannel.Name}.");
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 return MyCustomResult.FromError(e.Message);
             }
@@ -47,13 +49,13 @@ namespace DiscordBot.Services
 
         public async Task<RuntimeResult> LeaveAsync(IGuild guild, IGuildUser user)
         {
-            if(!_lavaNode.TryGetPlayer(guild, out var player))
+            if (!_lavaNode.TryGetPlayer(guild, out var player))
             {
                 return MyCustomResult.FromError("I'm not connected to any voice channel!");
             }
 
             var voiceChannel = user.VoiceChannel ?? player.VoiceChannel;
-            if(voiceChannel == null)
+            if (voiceChannel == null)
             {
                 return MyCustomResult.FromError("Not sure which voice channel to disconnect from.");
             }
@@ -63,7 +65,7 @@ namespace DiscordBot.Services
                 await _lavaNode.LeaveAsync(voiceChannel);
                 return MyCustomResult.FromSuccess($"Left {voiceChannel.Name}.");
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 return MyCustomResult.FromError(e.Message);
             }
@@ -71,7 +73,88 @@ namespace DiscordBot.Services
 
         public async Task<RuntimeResult> PlayAsync(IGuild guild, string query)
         {
+            if (String.IsNullOrWhiteSpace(query))
+            {
+                return MyCustomResult.FromError("Please provide a search term.");
+            }
 
+            if (!_lavaNode.HasPlayer(guild))
+            {
+                return MyCustomResult.FromError("I'm not connected to any voice channel!");
+            }
+
+            var searchResult = await _lavaNode.SearchYouTubeAsync(query);
+            if (searchResult.LoadStatus == LoadStatus.NoMatches ||
+                searchResult.LoadStatus == LoadStatus.LoadFailed)
+            {
+                return MyCustomResult.FromError($"Can't find anything for {query}.");
+            }
+
+            var player = _lavaNode.GetPlayer(guild);
+
+            if (player.PlayerState == PlayerState.Playing ||
+                player.PlayerState == PlayerState.Paused)
+            {
+                if(!String.IsNullOrWhiteSpace(searchResult.Playlist.Name))
+                {
+                    foreach(var track in searchResult.Tracks){
+                        player.Queue.Enqueue(track);
+                    }
+                    return MyCustomResult.FromSuccess($"Enqueued {searchResult.Tracks.Count} songs.");
+                }
+                else
+                {
+                    var track = searchResult.Tracks[0];
+                    player.Queue.Enqueue(track);
+                    return MyCustomResult.FromSuccess($"Enqueued {track.Title}.");
+                }
+            }
+            else
+            {
+                var track = searchResult.Tracks[0];
+                if (String.IsNullOrWhiteSpace(searchResult.Playlist.Name))
+                {
+                    player.Queue.Enqueue(track);
+                    return MyCustomResult.FromSuccess($"Playing {track.Title}.");
+                }
+                else
+                {
+                    await player.PlayAsync(track);
+                    for (int i = 1; i < searchResult.Tracks.Count; ++i)
+                    {
+                        player.Queue.Enqueue(searchResult.Tracks[i]);
+                    }
+                    return MyCustomResult.FromSuccess($"Enqueued {searchResult.Tracks.Count} songs.\nPlaying {track.Title}.");
+                }
+            }
+        }
+
+        public async Task<RuntimeResult> PauseAsync(IGuild guild)
+        {
+            if (!_lavaNode.TryGetPlayer(guild, out var player))
+            {
+                return MyCustomResult.FromError("I'm not connected to any voice channel!");
+            }
+
+            if (player.PlayerState != PlayerState.Playing)
+            {
+                return MyCustomResult.FromError("I'm not playing anything!");
+            }
+
+            try
+            {
+                await player.PauseAsync();
+                return MyCustomResult.FromSuccess($"Paused {player.Track.Title}.");
+            }
+            catch (Exception e)
+            {
+                return MyCustomResult.FromError(e.Message);
+            }
+        }
+
+        public async Task<RuntimeResult> ResumeAsync(IGuild guild)
+        {
+            
         }
 
         //public async Task<RuntimeResult> SendVoiceAsync(IGuild guild, IMessageChannel channel)

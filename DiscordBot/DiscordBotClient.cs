@@ -35,8 +35,6 @@ namespace DiscordBot
 
             _lavaNode = new LavaNode(_client, new LavaConfig
             {
-                Hostname = "0.0.0.0",
-                Port = 2334,
                 LogSeverity = LogSeverity.Debug
             });
 

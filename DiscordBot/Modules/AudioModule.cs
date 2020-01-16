@@ -27,5 +27,13 @@ namespace DiscordBot.Modules
         [Command("play", RunMode = RunMode.Async)]
         public async Task<RuntimeResult> SendVoiceAsync([Remainder] string query)
             => await _service.PlayAsync(Context.Guild, query);
+
+        [Command("pause")]
+        public async Task<RuntimeResult> PauseAsync()
+            => await _service.PauseAsync(Context.Guild);
+
+        [Command("resume")]
+        public async Task<RuntimeResult> ResumeAsync()
+            => await _service.ResumeAsync(Context.Guild);
     }
 }
