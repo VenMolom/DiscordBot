@@ -2,7 +2,6 @@
 using Discord.Commands;
 using Discord.WebSocket;
 using System.Threading.Tasks;
-using DiscordBot.Entities;
 
 namespace DiscordBot.Modules
 {
@@ -13,14 +12,6 @@ namespace DiscordBot.Modules
         public Task SayAsync(
             [Remainder][Summary("The text to echo")] string echo)
             => ReplyAsync(echo);
-
-        [Command("eat")]
-        public async Task<RuntimeResult> ChooseAsync(string food)
-        {
-            if (food == "salad")
-                return MyCustomResult.FromError("No, I don't want that!");
-            return MyCustomResult.FromSuccess($"Give me the {food}!");
-        }
     }
 
     [Group("sample")]
@@ -43,7 +34,7 @@ namespace DiscordBot.Modules
             var userInfo = user ?? Context.Client.CurrentUser;
             await ReplyAsync(
                 $"{userInfo.Username}#{userInfo.Discriminator}" +
-                $"\nCreated: {userInfo.CreatedAt.DateTime.ToString()}" +
+                $"\nCreated: {userInfo.CreatedAt.DateTime.ToString("dd.mm.yy")}" +
                 ((userInfo.Activity != null) ? $"\n{userInfo.Activity.Type.ToString()}: {userInfo.Activity.Name}" : ""));
         }
     }

@@ -4,9 +4,9 @@ using Discord;
 using Discord.WebSocket;
 using Discord.Commands;
 using System.Reflection;
-using Microsoft.Extensions.DependencyInjection;
 using DiscordBot.Services;
 using DiscordBot.Entities;
+using System.Threading;
 
 namespace DiscordBot
 {
@@ -46,16 +46,17 @@ namespace DiscordBot
         {
             switch (result)
             {
-                case MyCustomResult customResult:
-                    await context.Channel.SendMessageAsync(customResult.Reason);
+                case CommandResult commandResult:
+                    Emoji emoji = commandResult.IsSuccess ? new Emoji("✅") : new Emoji("❌");
+                    await context.Channel.SendMessageAsync(emoji + " " + commandResult.Reason);
                     break;
                 default:
-                    if (!string.IsNullOrEmpty(result?.ErrorReason))
+                    if (!result.IsSuccess)
                     {
                         string cmd = command.IsSpecified ? command.Value?.Name : "";
                         await _logger.Log(new LogMessage(LogSeverity.Info, "Command", $"Failed to execute \"{cmd}\" for {context.User} in {context.Guild}/{context.Channel}."));
                         await _logger.Log(new LogMessage(LogSeverity.Info, "Command", result.ErrorReason));
-                        await context.Channel.SendMessageAsync(result.ErrorReason);
+                        await context.Channel.SendMessageAsync(new Emoji("❌") + " " + result.ErrorReason);
                     }
                     break;
             }
@@ -75,7 +76,7 @@ namespace DiscordBot
 
             SocketCommandContext context = new SocketCommandContext(_client, message);
 
-            var result = await _commands.ExecuteAsync(context, argPos, _services);
+            await _commands.ExecuteAsync(context, argPos, _services);
         }
     }
 }

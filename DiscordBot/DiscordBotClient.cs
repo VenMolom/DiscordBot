@@ -8,15 +8,19 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using DiscordBot.Services;
 using Victoria;
+using DiscordBot.Entities;
 
 namespace DiscordBot
 {
     class DiscordBotClient
     {
+        public static readonly Game defaultGame = new Game("3 Wiedźmin 3 najlepszy");
+
         private readonly DiscordSocketClient _client;
         private readonly CommandService _cmdService;
         private readonly LavaNode _lavaNode;
         private IServiceProvider _services;
+        private readonly Config _config;
 
         public DiscordBotClient()
         {
@@ -30,13 +34,18 @@ namespace DiscordBot
             _cmdService = new CommandService(new CommandServiceConfig
             {
                 LogLevel = LogSeverity.Verbose,
-                CaseSensitiveCommands = false
+                CaseSensitiveCommands = false,
+                DefaultRunMode = RunMode.Async
             });
 
             _lavaNode = new LavaNode(_client, new LavaConfig
             {
-                LogSeverity = LogSeverity.Debug
+                Port = 2334,
+                LogSeverity = LogSeverity.Debug,
+                SelfDeaf = false
             });
+
+            _config = new ConfigService().GetConfig();
 
             Serilog.Log.Logger = new LoggerConfiguration()
                 .WriteTo.File("Logs/DiscordBot.log", rollingInterval: RollingInterval.Day)
@@ -52,7 +61,7 @@ namespace DiscordBot
 
             _client.Ready += OnReadyAsync;
 
-            await _client.LoginAsync(TokenType.Bot, Environment.GetEnvironmentVariable("DiscordToken"));
+            await _client.LoginAsync(TokenType.Bot, _config.Token);
             await _client.StartAsync();
 
             await Task.Delay(-1);
@@ -61,7 +70,7 @@ namespace DiscordBot
         public async Task OnReadyAsync()
         {
             await _lavaNode.ConnectAsync();
-            await _client.SetActivityAsync(new Game("3 Wiedźmin 3 najlepszy"));
+            await _client.SetActivityAsync(defaultGame);
             await _client.SetStatusAsync(UserStatus.AFK);
         }
 

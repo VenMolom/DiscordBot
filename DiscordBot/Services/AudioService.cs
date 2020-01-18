@@ -1,49 +1,86 @@
 ﻿using Discord;
-using Discord.Audio;
 using Discord.Commands;
 using Discord.WebSocket;
 using DiscordBot.Entities;
 using System;
-using System.Collections.Concurrent;
-using System.Diagnostics;
-using System.IO;
 using System.Threading.Tasks;
 using Victoria;
 using Victoria.Enums;
+using Victoria.EventArgs;
 
 namespace DiscordBot.Services
 {
     public class AudioService
     {
         private readonly LavaNode _lavaNode;
-        private readonly LoggingService _logger;
+        private readonly DiscordSocketClient _client;
 
-        public AudioService(LavaNode lavaNode, LoggingService logger)
+        public AudioService(LavaNode lavaNode, DiscordSocketClient client)
         {
             _lavaNode = lavaNode;
-            _logger = logger;
+            _client = client;
+
+            _lavaNode.OnTrackEnded += OnTrackEndedAsync;
+        }
+
+        private async Task OnTrackEndedAsync(TrackEndedEventArgs arg)
+        {
+            var player = arg.Player;
+            var users = await (player.VoiceChannel as IChannel).GetUsersAsync().FlattenAsync();
+            var user = users.GetEnumerator();
+            user.MoveNext();
+            if (!user.MoveNext())
+            {
+                await player.TextChannel.SendMessageAsync("No users listening, I'm leaving!");
+                await _client.SetActivityAsync(DiscordBotClient.defaultGame);
+                await LeaveAsync(player.VoiceChannel.Guild, null);
+                return;
+            }
+
+            if(!arg.Reason.ShouldPlayNext())
+            {
+                return;
+            }
+
+            if(!player.Queue.TryDequeue(out var queueable))
+            {
+                await player.TextChannel.SendMessageAsync("No more songs to play.");
+                await _client.SetActivityAsync(DiscordBotClient.defaultGame);
+                return;
+            }
+
+            if(!(queueable is LavaTrack track))
+            {
+                await player.TextChannel.SendMessageAsync("Can't play next song!");
+                await _client.SetActivityAsync(DiscordBotClient.defaultGame);
+                return;
+            }
+
+            await player.PlayAsync(track);
+            await player.TextChannel.SendMessageAsync($"{arg.Reason}: **{arg.Track.Title}**\nNow playing: **{track.Title}**.");
+            await _client.SetActivityAsync(new Game(track.Title, ActivityType.Playing));
         }
 
         public async Task<RuntimeResult> JoinAsync(IGuildUser user, ITextChannel textChannel)
         {
-            if (user.VoiceChannel == null)
+            if (user?.VoiceChannel == null)
             {
-                return MyCustomResult.FromError("You need to connect to voice channel.");
+                return CommandResult.FromError("You need to connect to voice channel.");
             }
 
             if (_lavaNode.HasPlayer(user.Guild))
             {
-                return MyCustomResult.FromError("Already connected to channel in this guild!");
+                return CommandResult.FromError("Already connected to channel in this guild!");
             }
 
             try
             {
                 await _lavaNode.JoinAsync(user.VoiceChannel, textChannel);
-                return MyCustomResult.FromSuccess($"Joined {user.VoiceChannel.Name}.");
+                return CommandResult.FromSuccess($"Joined **{user.VoiceChannel.Name}**.");
             }
             catch (Exception e)
             {
-                return MyCustomResult.FromError(e.Message);
+                return CommandResult.FromError(e.Message);
             }
         }
 
@@ -51,148 +88,192 @@ namespace DiscordBot.Services
         {
             if (!_lavaNode.TryGetPlayer(guild, out var player))
             {
-                return MyCustomResult.FromError("I'm not connected to any voice channel!");
+                return CommandResult.FromError("I'm not connected to any voice channel!");
             }
 
-            var voiceChannel = user.VoiceChannel ?? player.VoiceChannel;
+            var voiceChannel = user?.VoiceChannel ?? player?.VoiceChannel;
             if (voiceChannel == null)
             {
-                return MyCustomResult.FromError("Not sure which voice channel to disconnect from.");
+                return CommandResult.FromError("Not sure which voice channel to disconnect from.");
             }
 
             try
             {
                 await _lavaNode.LeaveAsync(voiceChannel);
-                return MyCustomResult.FromSuccess($"Left {voiceChannel.Name}.");
+                await _client.SetActivityAsync(DiscordBotClient.defaultGame);
+                return CommandResult.FromSuccess($"Left **{voiceChannel.Name}**.");
             }
             catch (Exception e)
             {
-                return MyCustomResult.FromError(e.Message);
+                return CommandResult.FromError(e.Message);
             }
         }
 
         public async Task<RuntimeResult> PlayAsync(IGuild guild, string query)
         {
-            if (String.IsNullOrWhiteSpace(query))
-            {
-                return MyCustomResult.FromError("Please provide a search term.");
-            }
-
             if (!_lavaNode.HasPlayer(guild))
             {
-                return MyCustomResult.FromError("I'm not connected to any voice channel!");
+                return CommandResult.FromError("I'm not connected to any voice channel!");
+            }
+
+            if (String.IsNullOrWhiteSpace(query))
+            {
+                return CommandResult.FromError("Please provide a search term.");
             }
 
             var searchResult = await _lavaNode.SearchYouTubeAsync(query);
             if (searchResult.LoadStatus == LoadStatus.NoMatches ||
                 searchResult.LoadStatus == LoadStatus.LoadFailed)
             {
-                return MyCustomResult.FromError($"Can't find anything for {query}.");
+                return CommandResult.FromError($"Can't find anything!");
             }
 
             var player = _lavaNode.GetPlayer(guild);
+            var track = searchResult.Tracks[0];
 
             if (player.PlayerState == PlayerState.Playing ||
                 player.PlayerState == PlayerState.Paused)
             {
-                if(!String.IsNullOrWhiteSpace(searchResult.Playlist.Name))
-                {
-                    foreach(var track in searchResult.Tracks){
-                        player.Queue.Enqueue(track);
-                    }
-                    return MyCustomResult.FromSuccess($"Enqueued {searchResult.Tracks.Count} songs.");
-                }
-                else
-                {
-                    var track = searchResult.Tracks[0];
-                    player.Queue.Enqueue(track);
-                    return MyCustomResult.FromSuccess($"Enqueued {track.Title}.");
-                }
+                player.Queue.Enqueue(track);
+                return CommandResult.FromSuccess($"Enqueued: **{track.Title}**.");
             }
             else
             {
-                var track = searchResult.Tracks[0];
-                if (String.IsNullOrWhiteSpace(searchResult.Playlist.Name))
-                {
-                    player.Queue.Enqueue(track);
-                    return MyCustomResult.FromSuccess($"Playing {track.Title}.");
-                }
-                else
-                {
-                    await player.PlayAsync(track);
-                    for (int i = 1; i < searchResult.Tracks.Count; ++i)
-                    {
-                        player.Queue.Enqueue(searchResult.Tracks[i]);
-                    }
-                    return MyCustomResult.FromSuccess($"Enqueued {searchResult.Tracks.Count} songs.\nPlaying {track.Title}.");
-                }
+                await player.PlayAsync(track);
+                await _client.SetActivityAsync(new Game(track.Title, ActivityType.Playing));
+                return CommandResult.FromSuccess($"Playing: **{track.Title}**.");
             }
+            //if (player.PlayerState == PlayerState.Playing ||
+            //    player.PlayerState == PlayerState.Paused)
+            //{
+            //    if(!String.IsNullOrWhiteSpace(searchResult.Playlist.Name))
+            //    {
+            //        foreach(var track in searchResult.Tracks){
+            //            player.Queue.Enqueue(track);
+            //        }
+            //        return MyCustomResult.FromSuccess($"Enqueued {searchResult.Tracks.Count} songs.");
+            //    }
+            //    else
+            //    {
+            //        var track = searchResult.Tracks[0];
+            //        player.Queue.Enqueue(track);
+            //        return MyCustomResult.FromSuccess($"Enqueued {track.Title}.");
+            //    }
+            //}
+            //else
+            //{
+            //    var track = searchResult.Tracks[0];
+            //    if (String.IsNullOrWhiteSpace(searchResult.Playlist.Name))
+            //    {
+            //        await player.PlayAsync(track);
+            //        return MyCustomResult.FromSuccess($"Playing {track.Title}.");
+            //    }
+            //    else
+            //    {
+            //        await player.PlayAsync(track);
+            //        for (int i = 1; i < searchResult.Tracks.Count; ++i)
+            //        {
+            //            player.Queue.Enqueue(searchResult.Tracks[i]);
+            //        }
+            //        return MyCustomResult.FromSuccess($"Enqueued {searchResult.Tracks.Count} songs.\nPlaying {track.Title}.");
+            //    }
+            //}
         }
 
         public async Task<RuntimeResult> PauseAsync(IGuild guild)
         {
             if (!_lavaNode.TryGetPlayer(guild, out var player))
             {
-                return MyCustomResult.FromError("I'm not connected to any voice channel!");
+                return CommandResult.FromError("I'm not connected to any voice channel!");
             }
 
             if (player.PlayerState != PlayerState.Playing)
             {
-                return MyCustomResult.FromError("I'm not playing anything!");
+                return CommandResult.FromError("I'm not playing anything!");
             }
 
             try
             {
                 await player.PauseAsync();
-                return MyCustomResult.FromSuccess($"Paused {player.Track.Title}.");
+                return CommandResult.FromSuccess($"Paused: **{player.Track.Title}**.");
             }
             catch (Exception e)
             {
-                return MyCustomResult.FromError(e.Message);
+                return CommandResult.FromError(e.Message);
             }
         }
 
         public async Task<RuntimeResult> ResumeAsync(IGuild guild)
         {
-            
+            if (!_lavaNode.TryGetPlayer(guild, out var player))
+            {
+                return CommandResult.FromError("I'm not connected to any voice channel!");
+            }
+
+            if (player.PlayerState != PlayerState.Paused)
+            {
+                return CommandResult.FromError("I'm not paused!");
+            }
+
+            try
+            {
+                await player.ResumeAsync();
+                return CommandResult.FromSuccess($"Resumed: **{player.Track.Title}**.");
+            }
+            catch (Exception e)
+            {
+                return CommandResult.FromError(e.Message);
+            }
         }
 
-        //public async Task<RuntimeResult> SendVoiceAsync(IGuild guild, IMessageChannel channel)
-        //{
-        //    string path = "002_1_1_2[1]_ohayoo.mp3";
+        public async Task<RuntimeResult> SkipAsync(IGuild guild)
+        {
+            if (!_lavaNode.TryGetPlayer(guild, out var player))
+            {
+                return CommandResult.FromError("I'm not connected to any voice channel!");
+            }
 
-        //    if(!File.Exists(path))
-        //    {
-        //        return MyCustomResult.FromError("File does not exist");
-        //    }
+            if (player.PlayerState != PlayerState.Playing)
+            {
+                return CommandResult.FromError("I can't skip when I'm not playing!");
+            }
 
-        //    IAudioClient audioClient;
+            if (player.Queue.Count == 0)
+            {
+                await player.StopAsync();
+                await _client.SetActivityAsync(new Game("3 Wiedźmin 3 najlepszy"));
+                return CommandResult.FromSuccess("No more songs to play.");
+            }
 
-        //    if(ConnectedChannels.TryGetValue(guild.Id, out audioClient))
-        //    {
-        //        using (var ffmpeg = CreateStream(path))
-        //        using (var output = ffmpeg.StandardOutput.BaseStream)
-        //        using (var discord = audioClient.CreatePCMStream(AudioApplication.Music))
-        //        {
-        //            await channel.SendMessageAsync($"Playing {path} in {guild.Name}");
-        //            try { await output.CopyToAsync(discord); }
-        //            finally { await discord.FlushAsync(); }
-        //        }
-        //        return MyCustomResult.FromSuccess($"Finished playing {path} in {guild.Name}");
-        //    }
+            try
+            {
+                var oldTrack = player.Track;
+                await player.SkipAsync();
+                await _client.SetActivityAsync(new Game(player.Track.Title, ActivityType.Playing));
+                return CommandResult.FromSuccess($"Skipped: **{oldTrack.Title}**.\nPlaying: **{player.Track.Title}**.");
+            }
+            catch (Exception e)
+            {
+                return CommandResult.FromError(e.Message);
+            }
+        }
 
-        //    return MyCustomResult.FromError("I'm not connected to any channel in this guild");
-        //}
+        public async Task<RuntimeResult> VolumeAsync(IGuild guild, ushort volume)
+        {
+            if (!_lavaNode.TryGetPlayer(guild, out var player))
+            {
+                return CommandResult.FromError("I'm not connected to any voice channel!");
+            }
 
-        //private Process CreateStream(string path)
-        //{
-        //    return Process.Start(new ProcessStartInfo
-        //    {
-        //        FileName = "ffmpeg",
-        //        Arguments = $"-hide_banner -loglevel panic -i \"{path}\" -ac 2 -f s16le -ar 48000 pipe:1",
-        //        UseShellExecute = false,
-        //        RedirectStandardOutput = true,
-        //    });
-        //}
+            try
+            {
+                await player.UpdateVolumeAsync(volume);
+                return CommandResult.FromSuccess($"Changed volume to **{volume}**.");
+            }
+            catch (Exception e)
+            {
+                return CommandResult.FromError(e.Message);
+            }
+        }
     }
 }

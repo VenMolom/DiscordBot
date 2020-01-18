@@ -1,6 +1,5 @@
 ﻿using Discord;
 using Discord.Commands;
-using DiscordBot.Entities;
 using DiscordBot.Services;
 using System.Threading.Tasks;
 
@@ -15,17 +14,17 @@ namespace DiscordBot.Modules
             _service = service;
         }
 
-        [Command("join", RunMode = RunMode.Async)]
+        [Command("join")]
         public async Task<RuntimeResult> JoinAsync()
             => await _service.JoinAsync(Context.User as IGuildUser, Context.Channel as ITextChannel);
 
-        [Command("leave", RunMode = RunMode.Async)]
+        [Command("leave")]
         public async Task<RuntimeResult> LeaveAsync()
             => await _service.LeaveAsync(Context.Guild, Context.User as IGuildUser);
       
 
-        [Command("play", RunMode = RunMode.Async)]
-        public async Task<RuntimeResult> SendVoiceAsync([Remainder] string query)
+        [Command("play")]
+        public async Task<RuntimeResult> SendVoiceAsync([Remainder] string query = null)
             => await _service.PlayAsync(Context.Guild, query);
 
         [Command("pause")]
@@ -35,5 +34,13 @@ namespace DiscordBot.Modules
         [Command("resume")]
         public async Task<RuntimeResult> ResumeAsync()
             => await _service.ResumeAsync(Context.Guild);
+
+        [Command("skip")]
+        public async Task<RuntimeResult> SkipAsync()
+            => await _service.SkipAsync(Context.Guild);
+
+        [Command("audio")]
+        public async Task<RuntimeResult> VolumeAsync(ushort volume)
+            => await _service.VolumeAsync(Context.Guild, volume);
     }
 }
