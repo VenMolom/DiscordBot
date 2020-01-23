@@ -39,7 +39,11 @@ namespace DiscordBot.Modules
         public async Task<RuntimeResult> SkipAsync()
             => await _service.SkipAsync(Context.Guild);
 
-        [Command("audio")]
+        [Command("stop")]
+        public async Task<RuntimeResult> StopASync()
+            => await _service.StopAsync(Context.Guild);
+
+        [Command("volume")]
         public async Task<RuntimeResult> VolumeAsync(ushort volume)
             => await _service.VolumeAsync(Context.Guild, volume);
     }

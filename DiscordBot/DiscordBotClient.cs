@@ -57,9 +57,9 @@ namespace DiscordBot
         {
             _services = ConfigureServices();
             await _services.GetRequiredService<CommandHandler>().InstallCommandsAsync();
-            
 
             _client.Ready += OnReadyAsync;
+            _client.UserUpdated += OnUserUpdatedAsync;
 
             await _client.LoginAsync(TokenType.Bot, _config.Token);
             await _client.StartAsync();
@@ -67,14 +67,23 @@ namespace DiscordBot
             await Task.Delay(-1);
         }
 
-        public async Task OnReadyAsync()
+        private async Task OnUserUpdatedAsync(SocketUser socketUser1, SocketUser socketUser2)
+        {
+            //SocketGuildUser user = socketUser1 as SocketGuildUser;
+            //user.ModifyAsync((prop) =>
+            //{
+            //    prop.Nickname = "aa";
+            //});
+        }
+
+        private async Task OnReadyAsync()
         {
             await _lavaNode.ConnectAsync();
             await _client.SetActivityAsync(defaultGame);
-            await _client.SetStatusAsync(UserStatus.AFK);
+            await _client.SetStatusAsync(UserStatus.AFK);   
         }
 
-        public IServiceProvider ConfigureServices()
+    public IServiceProvider ConfigureServices()
         {
             var services = new ServiceCollection()
             .AddSingleton(_client)

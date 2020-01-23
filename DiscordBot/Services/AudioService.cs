@@ -3,6 +3,7 @@ using Discord.Commands;
 using Discord.WebSocket;
 using DiscordBot.Entities;
 using System;
+using System.Net;
 using System.Threading.Tasks;
 using Victoria;
 using Victoria.Enums;
@@ -32,7 +33,6 @@ namespace DiscordBot.Services
             if (!user.MoveNext())
             {
                 await player.TextChannel.SendMessageAsync("No users listening, I'm leaving!");
-                await _client.SetActivityAsync(DiscordBotClient.defaultGame);
                 await LeaveAsync(player.VoiceChannel.Guild, null);
                 return;
             }
@@ -45,20 +45,17 @@ namespace DiscordBot.Services
             if(!player.Queue.TryDequeue(out var queueable))
             {
                 await player.TextChannel.SendMessageAsync("No more songs to play.");
-                await _client.SetActivityAsync(DiscordBotClient.defaultGame);
                 return;
             }
 
             if(!(queueable is LavaTrack track))
             {
                 await player.TextChannel.SendMessageAsync("Can't play next song!");
-                await _client.SetActivityAsync(DiscordBotClient.defaultGame);
                 return;
             }
 
             await player.PlayAsync(track);
             await player.TextChannel.SendMessageAsync($"{arg.Reason}: **{arg.Track.Title}**\nNow playing: **{track.Title}**.");
-            await _client.SetActivityAsync(new Game(track.Title, ActivityType.Playing));
         }
 
         public async Task<RuntimeResult> JoinAsync(IGuildUser user, ITextChannel textChannel)
@@ -100,7 +97,6 @@ namespace DiscordBot.Services
             try
             {
                 await _lavaNode.LeaveAsync(voiceChannel);
-                await _client.SetActivityAsync(DiscordBotClient.defaultGame);
                 return CommandResult.FromSuccess($"Left **{voiceChannel.Name}**.");
             }
             catch (Exception e)
@@ -121,7 +117,8 @@ namespace DiscordBot.Services
                 return CommandResult.FromError("Please provide a search term.");
             }
 
-            var searchResult = await _lavaNode.SearchYouTubeAsync(query);
+            var searchResult = await _lavaNode.SearchAsync(query);
+
             if (searchResult.LoadStatus == LoadStatus.NoMatches ||
                 searchResult.LoadStatus == LoadStatus.LoadFailed)
             {
@@ -129,55 +126,56 @@ namespace DiscordBot.Services
             }
 
             var player = _lavaNode.GetPlayer(guild);
-            var track = searchResult.Tracks[0];
+            //var track = searchResult.Tracks[0];
 
-            if (player.PlayerState == PlayerState.Playing ||
-                player.PlayerState == PlayerState.Paused)
-            {
-                player.Queue.Enqueue(track);
-                return CommandResult.FromSuccess($"Enqueued: **{track.Title}**.");
-            }
-            else
-            {
-                await player.PlayAsync(track);
-                await _client.SetActivityAsync(new Game(track.Title, ActivityType.Playing));
-                return CommandResult.FromSuccess($"Playing: **{track.Title}**.");
-            }
             //if (player.PlayerState == PlayerState.Playing ||
             //    player.PlayerState == PlayerState.Paused)
             //{
-            //    if(!String.IsNullOrWhiteSpace(searchResult.Playlist.Name))
-            //    {
-            //        foreach(var track in searchResult.Tracks){
-            //            player.Queue.Enqueue(track);
-            //        }
-            //        return MyCustomResult.FromSuccess($"Enqueued {searchResult.Tracks.Count} songs.");
-            //    }
-            //    else
-            //    {
-            //        var track = searchResult.Tracks[0];
-            //        player.Queue.Enqueue(track);
-            //        return MyCustomResult.FromSuccess($"Enqueued {track.Title}.");
-            //    }
+            //    player.Queue.Enqueue(track);
+            //    return CommandResult.FromSuccess($"Enqueued: **{track.Title}**.");
             //}
             //else
             //{
-            //    var track = searchResult.Tracks[0];
-            //    if (String.IsNullOrWhiteSpace(searchResult.Playlist.Name))
-            //    {
-            //        await player.PlayAsync(track);
-            //        return MyCustomResult.FromSuccess($"Playing {track.Title}.");
-            //    }
-            //    else
-            //    {
-            //        await player.PlayAsync(track);
-            //        for (int i = 1; i < searchResult.Tracks.Count; ++i)
-            //        {
-            //            player.Queue.Enqueue(searchResult.Tracks[i]);
-            //        }
-            //        return MyCustomResult.FromSuccess($"Enqueued {searchResult.Tracks.Count} songs.\nPlaying {track.Title}.");
-            //    }
+            //    await player.PlayAsync(track);
+            //    await _client.SetActivityAsync(new Game(track.Title, ActivityType.Playing));
+            //    return CommandResult.FromSuccess($"Playing: **{track.Title}**.");
             //}
+            if (player.PlayerState == PlayerState.Playing ||
+                player.PlayerState == PlayerState.Paused)
+            {
+                if (!String.IsNullOrWhiteSpace(searchResult.Playlist.Name))
+                {
+                    foreach (var track in searchResult.Tracks)
+                    {
+                        player.Queue.Enqueue(track);
+                    }
+                    return CommandResult.FromSuccess($"Enqueued {searchResult.Tracks.Count} songs.");
+                }
+                else
+                {
+                    var track = searchResult.Tracks[0];
+                    player.Queue.Enqueue(track);
+                    return CommandResult.FromSuccess($"Enqueued {track.Title}.");
+                }
+            }
+            else
+            {
+                var track = searchResult.Tracks[0];
+                if (String.IsNullOrWhiteSpace(searchResult.Playlist.Name))
+                {
+                    await player.PlayAsync(track);
+                    return CommandResult.FromSuccess($"Playing {track.Title}.");
+                }
+                else
+                {
+                    await player.PlayAsync(track);
+                    for (int i = 1; i < searchResult.Tracks.Count; ++i)
+                    {
+                        player.Queue.Enqueue(searchResult.Tracks[i]);
+                    }
+                    return CommandResult.FromSuccess($"Enqueued {searchResult.Tracks.Count} songs.\nPlaying {track.Title}.");
+                }
+            }
         }
 
         public async Task<RuntimeResult> PauseAsync(IGuild guild)
@@ -241,7 +239,6 @@ namespace DiscordBot.Services
             if (player.Queue.Count == 0)
             {
                 await player.StopAsync();
-                await _client.SetActivityAsync(new Game("3 Wiedźmin 3 najlepszy"));
                 return CommandResult.FromSuccess("No more songs to play.");
             }
 
@@ -249,7 +246,6 @@ namespace DiscordBot.Services
             {
                 var oldTrack = player.Track;
                 await player.SkipAsync();
-                await _client.SetActivityAsync(new Game(player.Track.Title, ActivityType.Playing));
                 return CommandResult.FromSuccess($"Skipped: **{oldTrack.Title}**.\nPlaying: **{player.Track.Title}**.");
             }
             catch (Exception e)
@@ -269,6 +265,31 @@ namespace DiscordBot.Services
             {
                 await player.UpdateVolumeAsync(volume);
                 return CommandResult.FromSuccess($"Changed volume to **{volume}**.");
+            }
+            catch (Exception e)
+            {
+                return CommandResult.FromError(e.Message);
+            }
+        }
+
+        public async Task<RuntimeResult> StopAsync(IGuild guild)
+        {
+            if (!_lavaNode.TryGetPlayer(guild, out var player))
+            {
+                return CommandResult.FromError("I'm not connected to any voice channel!");
+            }
+
+            if (player.PlayerState != PlayerState.Playing &&
+                player.PlayerState != PlayerState.Paused)
+            {
+                return CommandResult.FromError("I can't stop when I'm not playing!");
+            }
+
+            try
+            {
+                await player.StopAsync();
+                player.Queue.Clear();
+                return CommandResult.FromSuccess($"Stopped playing.");
             }
             catch (Exception e)
             {
