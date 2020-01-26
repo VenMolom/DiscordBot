@@ -2,8 +2,10 @@
 .vscode/*
 DiscordBot/bin/*
 DiscordBot/obj/*
+DiscordBot/Logs/*
 DiscordBot/Properties/*
 *.exe
 *.dll
 *.mp3
+*.log
 DiscordBot/Server/logs/*

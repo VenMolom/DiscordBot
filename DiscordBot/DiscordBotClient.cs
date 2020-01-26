@@ -14,7 +14,7 @@ namespace DiscordBot
 {
     class DiscordBotClient
     {
-        public static readonly Game defaultGame = new Game("3 Wiedźmin 3 najlepszy");
+        private readonly Game defaultGame;
 
         private readonly DiscordSocketClient _client;
         private readonly CommandService _cmdService;
@@ -51,6 +51,8 @@ namespace DiscordBot
                 .WriteTo.File("Logs/DiscordBot.log", rollingInterval: RollingInterval.Day)
                 .WriteTo.Console()
                 .CreateLogger();
+
+            defaultGame = new Game("3 Wiedźmin 3 najlepszy");
         }
 
         public async Task InitializeAsync()

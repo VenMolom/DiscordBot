@@ -39,6 +39,8 @@ namespace DiscordBot
             if (logMessage.Exception is CommandException cmdException)
             {
                 await cmdException.Context.Channel.SendMessageAsync("Something went catastrophically wrong!");
+                var application = await _client.GetApplicationInfoAsync();
+                await application.Owner.SendMessageAsync("```" + cmdException.ToString() + "```");
             }
         }
 
