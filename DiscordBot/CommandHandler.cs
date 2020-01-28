@@ -12,6 +12,8 @@ namespace DiscordBot
 {
     public class CommandHandler
     {
+        private readonly int waitTime = 300000;
+
         private readonly DiscordSocketClient _client;
         private readonly CommandService _commands;
         private readonly IServiceProvider _services;
@@ -50,7 +52,8 @@ namespace DiscordBot
             {
                 case CommandResult commandResult:
                     Emoji emoji = commandResult.IsSuccess ? new Emoji("✅") : new Emoji("❌");
-                    await context.Channel.SendMessageAsync(emoji + " " + commandResult.Reason);
+                    var message = await context.Channel.SendMessageAsync(emoji + " " + commandResult.Reason);
+                    SleepAndDelete(waitTime, message);
                     break;
                 default:
                     if (!result.IsSuccess)
@@ -79,6 +82,16 @@ namespace DiscordBot
             SocketCommandContext context = new SocketCommandContext(_client, message);
 
             await _commands.ExecuteAsync(context, argPos, _services);
+        }
+
+        private void SleepAndDelete(int milisecondsTimeout, IUserMessage message)
+        {
+            if(message == null) return;
+            Task.Run(() => 
+            {
+                Thread.Sleep(5000);
+                message.DeleteAsync();
+            });
         }
     }
 }

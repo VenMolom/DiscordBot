@@ -3,6 +3,7 @@ using Discord.Commands;
 using Discord.WebSocket;
 using DiscordBot.Entities;
 using System;
+using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using Victoria;
@@ -28,9 +29,7 @@ namespace DiscordBot.Services
         {
             var player = arg.Player;
             var users = await (player.VoiceChannel as IChannel).GetUsersAsync().FlattenAsync();
-            var user = users.GetEnumerator();
-            user.MoveNext();
-            if (!user.MoveNext())
+            if (users.Count() == 1)
             {
                 await player.TextChannel.SendMessageAsync("No users listening, I'm leaving!");
                 await LeaveAsync(player.VoiceChannel.Guild, null);
