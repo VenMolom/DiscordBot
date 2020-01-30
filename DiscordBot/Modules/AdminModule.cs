@@ -23,5 +23,9 @@ namespace DiscordBot.Modules
         [Command("ping")]
         public async Task PingAsync(SocketUser user, int iterations = 1)
             => await _adminService.PingAsync(user, Context.Channel, iterations);
+
+        [Command("quit")]
+        public async Task QuitAsync()
+            => await _adminService.QuitAsync();
     }
 }
