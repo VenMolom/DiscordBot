@@ -126,20 +126,7 @@ namespace DiscordBot.Services
             }
 
             var player = _lavaNode.GetPlayer(guild);
-            //var track = searchResult.Tracks[0];
 
-            //if (player.PlayerState == PlayerState.Playing ||
-            //    player.PlayerState == PlayerState.Paused)
-            //{
-            //    player.Queue.Enqueue(track);
-            //    return CommandResult.FromSuccess($"Enqueued: **{track.Title}**.");
-            //}
-            //else
-            //{
-            //    await player.PlayAsync(track);
-            //    await _client.SetActivityAsync(new Game(track.Title, ActivityType.Playing));
-            //    return CommandResult.FromSuccess($"Playing: **{track.Title}**.");
-            //}
             if (player.PlayerState == PlayerState.Playing ||
                 player.PlayerState == PlayerState.Paused)
             {

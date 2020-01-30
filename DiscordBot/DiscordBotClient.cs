@@ -92,6 +92,7 @@ namespace DiscordBot
             .AddSingleton(_cmdService)
             .AddSingleton(_lavaNode)
             .AddSingleton<AudioService>()
+            .AddSingleton<AdminService>()
             .AddSingleton<CommandHandler>()
             .AddSingleton<LoggingService>()
             .AddLogging(configure => configure.AddSerilog());
