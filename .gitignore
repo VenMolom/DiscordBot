@@ -8,4 +8,5 @@ DiscordBot/Properties/*
 *.dll
 *.mp3
 *.log
+*.json
 DiscordBot/Server/logs/*
