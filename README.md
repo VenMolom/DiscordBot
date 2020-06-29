@@ -1,2 +1,3 @@
 # DiscordBot
-DiscordBot written in Discord.Net
+DiscordBot written in Discord.Net.
+Main functionality is playing music.
